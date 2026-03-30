@@ -5,8 +5,8 @@
 #include "FS.h"
 #include <LittleFS.h>
 
-const char* ssid     = "OrionTelekom_EAAA-2.4G";
-const char* password = "HWTCC921EAAA";
+const char* ssid     = "";
+const char* password = "";
 
 WebServer server(80);
 VL53L1X sensor;
