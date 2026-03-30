@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brod Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M3 17h18v2H3zm2-4l4-8 4 4 3-5 4 9H5z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Brod Monitor</div>
+        <div class="brand-sub">ESP32 · VL53L1X · Live</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="connStatus" class="pill offline">
+        <span class="pill-dot"></span>
+        <span id="connLabel">Povezivanje...</span>
+      </div>
+      <div class="clk" id="clock">--:--:--</div>
+      <button class="btn btn-d" onclick="resetCount()">Reset brojača</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('live',this)">Live prikaz</button>
+    <button class="tab" onclick="switchTab('reports',this)">Izveštaji</button>
+    <button class="tab" onclick="switchTab('log',this)">Dnevnik</button>
+  </div>
+
+  <!-- LIVE -->
+  <div id="tab-live" class="tab-content active">
+    <div class="stats-grid">
+      <div class="scard">
+        <div class="slbl">Rastojanje</div>
+        <div class="snum" id="distVal" style="color:var(--accent)">—</div>
+        <div class="ssub">milimetara</div>
+        <div class="bar-t"><div class="bar-f" id="distBar" style="width:0%"></div></div>
+      </div>
+      <div class="scard">
+        <div class="slbl">Ukupno detekcija</div>
+        <div class="snum" id="countVal">—</div>
+        <div class="ssub">od poslednjeg reseta</div>
+        <div class="det-bdg" id="lastDetBadge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          čekanje...
+        </div>
+      </div>
+      <div class="scard">
+        <div class="slbl">Status senzora</div>
+        <div class="snum" id="statusVal" style="font-size:20px;line-height:2.2">—</div>
+        <div class="ssub" id="statusSub">čekanje na podatke</div>
+      </div>
+      <div class="scard">
+        <div class="slbl">Blokada</div>
+        <div class="snum" id="blokadaVal" style="font-size:20px;line-height:2.2">—</div>
+        <div class="ssub" id="blokadaSub">preostalo vreme</div>
+      </div>
+    </div>
+    <div class="live-grid">
+      <div class="panel">
+        <div class="ph">Graf rastojanja · poslednjih 60 merenja</div>
+        <div class="chart-area"><canvas id="distChart"></canvas></div>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column">
+        <div class="ph">Status detekcije</div>
+        <div class="s-center">
+          <div class="s-orb" id="sensorOrb"><span id="sensorIcon">·</span></div>
+          <div class="s-lbl" id="sensorLabel">—</div>
+          <div class="s-inf" id="sensorInfo">Čekanje na podatke...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="tab-reports" class="tab-content">
+    <div class="fbar">
+      <div class="fld"><label>Datum od</label><input type="date" id="rFrom"></div>
+      <div class="fld"><label>Datum do</label><input type="date" id="rTo"></div>
+      <div class="fld"><label>Vreme od</label><input type="time" id="rTimeFrom" value="00:00"></div>
+      <div class="fld"><label>Vreme do</label><input type="time" id="rTimeTo" value="23:59"></div>
+      <div class="fld">
+        <label>Grupisanje</label>
+        <select id="rGroup">
+          <option value="day">Po danu</option>
+          <option value="hour">Po satu</option>
+          <option value="week">Po sedmici</option>
+        </select>
+      </div>
+      <button class="btn btn-p" onclick="generateReport()">Generiši</button>
+    </div>
+    <div class="rcards" id="reportSummary">
+      <div class="rc"><div class="rl">Ukupno</div><div class="rv" id="rTotal">0</div></div>
+      <div class="rc"><div class="rl">Maks / period</div><div class="rv" id="rMax">0</div></div>
+      <div class="rc"><div class="rl">Prosek / period</div><div class="rv" id="rAvg">0</div></div>
+      <div class="rc"><div class="rl">Perioda</div><div class="rv" id="rPeriods">0</div></div>
+    </div>
+    <div id="reportTableWrap">
+      <div class="empty"><div class="empty-i">📊</div><p>Odaberite period i pritisnite "Generiši"</p></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="tab-log" class="tab-content">
+    <div class="fbar">
+      <div class="fld"><label>Pretraži</label><input type="text" id="logSearch" placeholder="npr. 31.03.2026" oninput="renderLog()"></div>
+      <div class="fld"><label>Datum od</label><input type="date" id="logFrom" onchange="renderLog()"></div>
+      <div class="fld"><label>Datum do</label><input type="date" id="logTo" onchange="renderLog()"></div>
+      <div class="fld"><label>Vreme od</label><input type="time" id="logTimeFrom" value="00:00" onchange="renderLog()"></div>
+      <div class="fld"><label>Vreme do</label><input type="time" id="logTimeTo" value="23:59" onchange="renderLog()"></div>
+      <div class="fld">
+        <label>Prikazi</label>
+        <select id="logPerPage" onchange="renderLog()">
+          <option value="15">15 / strana</option>
+          <option value="30">30 / strana</option>
+          <option value="50">50 / strana</option>
+          <option value="100">100 / strana</option>
+        </select>
+      </div>
+      <button class="btn" onclick="exportCSV()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+      <button class="btn btn-d" onclick="clearLog()">Obriši log</button>
+    </div>
+    <div class="panel">
+      <div class="tw">
+        <table>
+          <thead><tr><th>#</th><th>Datum i vreme</th><th>Redni br.</th><th>Rastojanje</th><th>Status</th></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+      <div class="pag" id="pagination"></div>
+      <div class="empty" id="logEmpty" style="display:none">
+        <div class="empty-i">📋</div>
+        <p id="logEmptyMsg">Nema zapisa za ovaj filter</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div id="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>
