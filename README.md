@@ -30,3 +30,5 @@ The system is highly tunable via the source code:
 - `HYSTERESIS`: Buffer distance to ensure stable state switching.
 - `LOCKOUT_PERIOD`: Minimum time (ms) required between two consecutive counts.
 - `SAMPLES`: Number of sensor readings averaged per cycle for noise reduction.
+## 🖼️ Image
+<img src = ./slika.png />
